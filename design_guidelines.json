@@ -1,0 +1,121 @@
+{
+  "identity": {
+    "name": "AssetGuard Pro",
+    "tone": "Industrial, Reliable, Precision-Focused",
+    "description": "A robust maintenance log system for restaurant assets, bridging physical inventory with digital tracking."
+  },
+  "typography": {
+    "primary_font": "Inter",
+    "heading_font": "Chivo",
+    "mono_font": "JetBrains Mono",
+    "scale": {
+      "h1": "text-4xl md:text-5xl font-black tracking-tight",
+      "h2": "text-3xl font-bold tracking-tight",
+      "h3": "text-2xl font-bold",
+      "body": "text-base font-normal leading-relaxed",
+      "small": "text-sm font-medium text-muted-foreground",
+      "label": "text-xs font-bold uppercase tracking-wider text-muted-foreground"
+    }
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "DEFAULT": "#0F172A",
+        "foreground": "#F8FAFC"
+      },
+      "secondary": {
+        "DEFAULT": "#F97316",
+        "foreground": "#FFFFFF"
+      },
+      "accent": {
+        "DEFAULT": "#10B981",
+        "foreground": "#FFFFFF"
+      },
+      "destructive": {
+        "DEFAULT": "#EF4444",
+        "foreground": "#FFFFFF"
+      },
+      "background": "#F8FAFC",
+      "surface": "#FFFFFF",
+      "border": "#E2E8F0"
+    },
+    "semantic": {
+      "status_operational": "bg-emerald-50 text-emerald-700 border-emerald-200",
+      "status_warning": "bg-orange-50 text-orange-700 border-orange-200",
+      "status_critical": "bg-red-50 text-red-700 border-red-200",
+      "status_maintenance": "bg-blue-50 text-blue-700 border-blue-200"
+    }
+  },
+  "layout_strategy": {
+    "dashboard": "bento_grid_dense",
+    "mobile": "stack_cards",
+    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+    "spacing": "comfortable"
+  },
+  "components": {
+    "cards": {
+      "style": "bg-white border border-slate-200 shadow-sm rounded-sm hover:border-slate-300 transition-colors",
+      "padding": "p-6"
+    },
+    "buttons": {
+      "primary": "bg-slate-900 hover:bg-slate-800 text-white rounded-sm font-medium shadow-sm",
+      "secondary": "bg-white border border-slate-200 text-slate-900 hover:bg-slate-50 rounded-sm font-medium",
+      "ghost": "hover:bg-slate-100 text-slate-600 hover:text-slate-900 rounded-sm"
+    },
+    "inputs": {
+      "style": "bg-white border-slate-200 focus:ring-2 focus:ring-slate-900/10 rounded-sm"
+    },
+    "badges": {
+      "style": "rounded-full px-2.5 py-0.5 text-xs font-semibold border"
+    }
+  },
+  "visual_enhancers": {
+    "textures": "subtle_dot_pattern_on_dashboard_bg",
+    "shadows": "shadow-sm for cards, shadow-md for dropdowns",
+    "borders": "1px solid slate-200 for all containers"
+  },
+  "motion": {
+    "hover": "transition-all duration-200 ease-in-out",
+    "enter": "animate-in fade-in zoom-in-95 duration-300",
+    "exit": "animate-out fade-out zoom-out-95 duration-200"
+  },
+  "image_assets": {
+    "login_hero": {
+      "url": "https://images.unsplash.com/photo-1604636559893-a748bfecfa0e?auto=format&fit=crop&q=80",
+      "alt": "Modern Air Conditioner Split Unit"
+    },
+    "dashboard_technician": {
+      "url": "https://images.unsplash.com/photo-1670597132197-1de99bad866c?auto=format&fit=crop&q=80",
+      "alt": "Technician working on HVAC unit"
+    },
+    "restaurant_context": {
+      "url": "https://images.unsplash.com/photo-1762087577613-978bf9066d39?auto=format&fit=crop&q=80",
+      "alt": "Modern Restaurant Interior"
+    },
+    "maintenance_thumb": {
+      "url": "https://images.unsplash.com/photo-1758798157512-f0a864c696c9?auto=format&fit=crop&q=80",
+      "alt": "AC Unit Close up"
+    }
+  },
+  "universal_guidelines": [
+    "Use 'Chivo' for all headings and 'Inter' for body text.",
+    "Use 'JetBrains Mono' for serial numbers, asset IDs, and technical data.",
+    "Cards must have a sharp, industrial feel (rounded-sm).",
+    "Use color coding strictly for status: Emerald (Good), Orange (Warning), Red (Critical).",
+    "Forms must be dense and labeled clearly (top labels).",
+    "Mobile views must convert tables to stacked cards for readability.",
+    "Use 'lucide-react' for all icons.",
+    "Dashboard grid must follow the 'Bento' layout rules (mixed spans).",
+    "Never use gradients for backgrounds; stick to solid colors or subtle patterns.",
+    "Ensure all interactive elements have hover states.",
+    "Use 'sonner' for all toast notifications."
+  ],
+  "instructions_to_main_agent": {
+    "setup": "Install 'lucide-react', 'recharts', 'date-fns', 'clsx', 'tailwind-merge'.",
+    "font_setup": "Import Chivo and Inter from Google Fonts in index.css.",
+    "component_overrides": "Modify Shadcn components to use 'rounded-sm' instead of 'rounded-md' or 'rounded-lg' to match the industrial theme.",
+    "chart_config": "Use Recharts with the defined color palette for data visualization.",
+    "dashboard_layout": "Implement the dashboard using CSS Grid with 'grid-cols-1 md:grid-cols-4 lg:grid-cols-6' and use col-span utilities for widget sizing.",
+    "navigation": "Create a responsive sidebar navigation that collapses on mobile."
+  }
+}
