@@ -394,6 +394,73 @@ async def delete_maintenance_plan(
     
     return {"message": "Plan eliminado exitosamente"}
 
+@api_router.get("/quotes/check-requirement/{asset_id}")
+async def check_quote_requirement(
+    asset_id: str,
+    monto: float,
+    user: User = Depends(get_current_user)
+):
+    """Verificar si se requieren 2 cotizaciones para el monto dado"""
+    # Get threshold from config
+    threshold_str = await config_service.get("QUOTE_THRESHOLD", "5000")
+    threshold = float(threshold_str)
+    
+    requires_multiple = monto >= threshold
+    
+    if not requires_multiple:
+        return {
+            "requires_multiple_quotes": False,
+            "threshold": threshold,
+            "message": "No se requieren múltiples cotizaciones"
+        }
+    
+    # Check how many quotes exist for this asset
+    existing_quotes = await db.quotes.count_documents({
+        "asset_id": asset_id,
+        "estado": {"$in": ["pendiente", "aprobada"]}
+    })
+    
+    return {
+        "requires_multiple_quotes": True,
+        "threshold": threshold,
+        "existing_quotes": existing_quotes,
+        "min_required": 2,
+        "can_proceed": existing_quotes >= 1,
+        "message": f"Se requieren mínimo 2 cotizaciones. Actualmente hay {existing_quotes}."
+    }
+
+    plan_data: MaintenancePlanCreate,
+    user: User = Depends(get_current_user)
+):
+    """Actualizar plan de mantenimiento"""
+    existing = await db.maintenance_plans.find_one({"id": plan_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Plan no encontrado")
+    
+    update_data = plan_data.model_dump()
+    await db.maintenance_plans.update_one({"id": plan_id}, {"$set": update_data})
+    
+    updated = await db.maintenance_plans.find_one({"id": plan_id}, {"_id": 0})
+    if isinstance(updated.get('created_at'), str):
+        updated['created_at'] = datetime.fromisoformat(updated['created_at'])
+    
+    return MaintenancePlan(**updated)
+
+@api_router.delete("/maintenance-plans/{plan_id}")
+async def delete_maintenance_plan(
+    plan_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Eliminar plan de mantenimiento"""
+    if user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="No tienes permisos para eliminar planes")
+    
+    result = await db.maintenance_plans.delete_one({"id": plan_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Plan no encontrado")
+    
+    return {"message": "Plan eliminado exitosamente"}
+
 # ============ QUOTE ROUTES ============
 
 @api_router.post("/quotes", response_model=Quote, status_code=status.HTTP_201_CREATED)
