@@ -22,10 +22,12 @@ from models import (
     AssetReplacement, AssetReplacementCreate,
     DashboardStats
 )
+from models_config import Config, ConfigCreate, ConfigUpdate, ConfigPublic, TestNotificationRequest
 from auth import get_password_hash, verify_password, create_access_token, decode_token, security
-from services.notification_service import send_alert_notification
+from services.notification_service import NotificationService
 from services.sql_service import sql_service
 from services.analytics_service import AnalyticsService
+from services.config_service import ConfigService
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -52,6 +54,18 @@ logger = logging.getLogger(__name__)
 
 # Analytics service
 analytics = AnalyticsService(db)
+
+# Config service
+config_service = ConfigService(db)
+
+# Notification service
+notification_service = NotificationService(config_service)
+
+# Initialize config service on startup
+@app.on_event("startup")
+async def startup_event():
+    await config_service.load_cache()
+    logger.info("Config service initialized")
 
 # Auth dependency
 async def get_current_user(credentials = Depends(security)) -> User:
@@ -399,6 +413,114 @@ async def approve_authorization(
     )
     
     return {"message": "Autorización aprobada"}
+
+
+# ============ CONFIGURATION ROUTES (Admin Only) ============
+
+@api_router.get("/config", response_model=List[ConfigPublic])
+async def get_all_configs(user: User = Depends(get_current_user)):
+    """Obtener todas las configuraciones (solo admin)"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores pueden acceder a las configuraciones")
+    
+    configs = await db.configs.find({}, {"_id": 0}).to_list(1000)
+    
+    # Mask sensitive values
+    result = []
+    for config in configs:
+        if isinstance(config.get('created_at'), str):
+            config['created_at'] = datetime.fromisoformat(config['created_at'])
+        if isinstance(config.get('updated_at'), str):
+            config['updated_at'] = datetime.fromisoformat(config['updated_at'])
+        
+        config_dict = Config(**config).model_dump()
+        
+        # Mask sensitive values
+        if config_dict.get('is_sensitive') and config_dict.get('value'):
+            masked_value = config_dict['value'][:4] + "*" * (len(config_dict['value']) - 4) if len(config_dict['value']) > 4 else "****"
+            config_dict['value'] = masked_value
+        
+        result.append(ConfigPublic(**config_dict))
+    
+    return result
+
+@api_router.get("/config/{config_id}", response_model=Config)
+async def get_config(config_id: str, user: User = Depends(get_current_user)):
+    """Obtener configuración específica (solo admin)"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores pueden acceder a las configuraciones")
+    
+    config = await db.configs.find_one({"id": config_id}, {"_id": 0})
+    if not config:
+        raise HTTPException(status_code=404, detail="Configuración no encontrada")
+    
+    if isinstance(config.get('created_at'), str):
+        config['created_at'] = datetime.fromisoformat(config['created_at'])
+    if isinstance(config.get('updated_at'), str):
+        config['updated_at'] = datetime.fromisoformat(config['updated_at'])
+    
+    return Config(**config)
+
+@api_router.put("/config/{config_id}")
+async def update_config(
+    config_id: str,
+    update_data: ConfigUpdate,
+    user: User = Depends(get_current_user)
+):
+    """Actualizar configuración (solo admin)"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores pueden modificar configuraciones")
+    
+    config = await db.configs.find_one({"id": config_id}, {"_id": 0})
+    if not config:
+        raise HTTPException(status_code=404, detail="Configuración no encontrada")
+    
+    update_dict = {}
+    if update_data.value is not None:
+        update_dict["value"] = update_data.value
+    if update_data.description is not None:
+        update_dict["description"] = update_data.description
+    if update_data.active is not None:
+        update_dict["active"] = update_data.active
+    
+    if update_dict:
+        update_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
+        update_dict["updated_by"] = user.id
+        
+        await db.configs.update_one({"id": config_id}, {"$set": update_dict})
+        
+        # Reload config cache
+        await config_service.reload_cache()
+        logger.info(f"Config {config['key']} updated by {user.email}")
+    
+    return {"message": "Configuración actualizada exitosamente"}
+
+@api_router.post("/config/test-notification")
+async def test_notification(
+    request: TestNotificationRequest,
+    user: User = Depends(get_current_user)
+):
+    """Enviar notificación de prueba (solo admin)"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores pueden probar notificaciones")
+    
+    alert_data = {
+        "titulo": "Prueba de Notificación",
+        "mensaje": "Este es un mensaje de prueba del sistema AssetGuard Pro",
+        "prioridad": "media"
+    }
+    
+    results = await notification_service.send_alert_notification(
+        "test",
+        request.test_email,
+        request.test_phone,
+        alert_data
+    )
+    
+    return {
+        "message": "Notificación de prueba enviada",
+        "results": results
+    }
 
 # ============ ALERT ROUTES ============
 

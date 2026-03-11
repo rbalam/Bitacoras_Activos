@@ -11,7 +11,8 @@ import {
   BarChart3, 
   LogOut,
   Menu,
-  X
+  X,
+  Settings
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -32,6 +33,13 @@ const Layout = ({ children }) => {
     { name: 'Reportes', href: '/reports', icon: BarChart3 },
   ];
 
+  // Add settings only for admin
+  const adminNavigation = user?.role === 'admin' 
+    ? [{ name: 'Configuración', href: '/settings', icon: Settings }]
+    : [];
+
+  const allNavigation = [...navigation, ...adminNavigation];
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -49,7 +57,7 @@ const Layout = ({ children }) => {
               </h1>
             </div>
             <nav className="mt-8 flex-1 space-y-1 px-3">
-              {navigation.map((item) => {
+              {allNavigation.map((item) => {
                 const isActive = location.pathname === item.href;
                 return (
                   <Link
@@ -114,7 +122,7 @@ const Layout = ({ children }) => {
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-30 bg-white" data-testid="mobile-menu">
           <div className="pt-16 pb-3 space-y-1 px-3">
-            {navigation.map((item) => {
+            {allNavigation.map((item) => {
               const isActive = location.pathname === item.href;
               return (
                 <Link

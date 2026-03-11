@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
+import ConfigSettings from "./pages/Settings";
 import "@/App.css";
 
 // Protected Route Component
@@ -154,6 +155,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Reports />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <ConfigSettings />
               </ProtectedRoute>
             }
           />
