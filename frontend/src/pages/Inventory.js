@@ -32,6 +32,7 @@ const Inventory = () => {
     costo_equipo: '',
     fecha_compra: '',
     estado: 'operativo',
+    foto_url: '',
     notas: ''
   });
 
@@ -97,6 +98,7 @@ const Inventory = () => {
         costo_equipo: '',
         fecha_compra: '',
         estado: 'operativo',
+        foto_url: '',
         notas: ''
       });
     } catch (error) {
@@ -267,6 +269,17 @@ const Inventory = () => {
                   </div>
                 </div>
                 <div>
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">URL de Foto</Label>
+                  <Input
+                    data-testid="foto-input"
+                    placeholder="https://ejemplo.com/foto.jpg"
+                    value={formData.foto_url}
+                    onChange={(e) => setFormData({ ...formData, foto_url: e.target.value })}
+                    className="mt-1 bg-white border-slate-200 rounded-sm"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">URL de la imagen del equipo</p>
+                </div>
+                <div>
                   <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Notas</Label>
                   <Input
                     data-testid="notas-input"
@@ -331,6 +344,16 @@ const Inventory = () => {
                 onClick={() => navigate(`/asset/${asset.id}`)}
                 data-testid={`asset-card-${asset.id}`}
               >
+                {asset.foto_url && (
+                  <div className="mb-4">
+                    <img 
+                      src={asset.foto_url} 
+                      alt={asset.etiqueta_id}
+                      className="w-full h-32 object-cover rounded-sm"
+                      onError={(e) => e.target.style.display = 'none'}
+                    />
+                  </div>
+                )}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <div className="flex items-center">

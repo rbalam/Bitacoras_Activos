@@ -6,6 +6,9 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
+import MaintenancePlans from "./pages/MaintenancePlans";
+import Authorizations from "./pages/Authorizations";
+import Reports from "./pages/Reports";
 import ConfigSettings from "./pages/Settings";
 import "@/App.css";
 
@@ -47,34 +50,16 @@ const PublicRoute = ({ children }) => {
   return children;
 };
 
-// Placeholder components for routes not yet created
-const Maintenances = () => (
-  <div className="p-8 text-center">
-    <h1 className="text-2xl font-bold">Mantenimientos - En desarrollo</h1>
-  </div>
-);
-
+// Placeholder components for routes not yet fully implemented
 const Quotes = () => (
   <div className="p-8 text-center">
     <h1 className="text-2xl font-bold">Cotizaciones - En desarrollo</h1>
   </div>
 );
 
-const Authorizations = () => (
-  <div className="p-8 text-center">
-    <h1 className="text-2xl font-bold">Autorizaciones - En desarrollo</h1>
-  </div>
-);
-
 const Alerts = () => (
   <div className="p-8 text-center">
     <h1 className="text-2xl font-bold">Alertas - En desarrollo</h1>
-  </div>
-);
-
-const Reports = () => (
-  <div className="p-8 text-center">
-    <h1 className="text-2xl font-bold">Reportes - En desarrollo</h1>
   </div>
 );
 
@@ -122,7 +107,7 @@ function App() {
             path="/maintenances"
             element={
               <ProtectedRoute>
-                <Maintenances />
+                <MaintenancePlans />
               </ProtectedRoute>
             }
           />
