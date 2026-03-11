@@ -15,6 +15,7 @@ from models import (
     User, UserCreate, UserLogin, Token,
     Asset, AssetCreate,
     Maintenance, MaintenanceCreate,
+    MaintenancePlan, MaintenancePlanCreate,
     Quote, QuoteCreate,
     Authorization, AuthorizationCreate,
     Alert, AlertCreate,
@@ -310,6 +311,89 @@ async def update_maintenance(
     
     return Maintenance(**updated)
 
+
+# ============ MAINTENANCE PLAN ROUTES ============
+
+@api_router.post("/maintenance-plans", response_model=MaintenancePlan, status_code=status.HTTP_201_CREATED)
+async def create_maintenance_plan(
+    plan_data: MaintenancePlanCreate,
+    user: User = Depends(get_current_user)
+):
+    """Crear nuevo plan de mantenimiento preventivo"""
+    plan = MaintenancePlan(**plan_data.model_dump(), created_by=user.id)
+    doc = plan.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    
+    await db.maintenance_plans.insert_one(doc)
+    return plan
+
+@api_router.get("/maintenance-plans", response_model=List[MaintenancePlan])
+async def get_maintenance_plans(
+    activo: Optional[bool] = None,
+    user: User = Depends(get_current_user)
+):
+    """Obtener planes de mantenimiento"""
+    query = {}
+    if activo is not None:
+        query["activo"] = activo
+    
+    plans = await db.maintenance_plans.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    for plan in plans:
+        if isinstance(plan.get('created_at'), str):
+            plan['created_at'] = datetime.fromisoformat(plan['created_at'])
+    
+    return plans
+
+@api_router.get("/maintenance-plans/{plan_id}", response_model=MaintenancePlan)
+async def get_maintenance_plan(
+    plan_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Obtener detalle de un plan"""
+    plan = await db.maintenance_plans.find_one({"id": plan_id}, {"_id": 0})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan no encontrado")
+    
+    if isinstance(plan.get('created_at'), str):
+        plan['created_at'] = datetime.fromisoformat(plan['created_at'])
+    
+    return MaintenancePlan(**plan)
+
+@api_router.put("/maintenance-plans/{plan_id}", response_model=MaintenancePlan)
+async def update_maintenance_plan(
+    plan_id: str,
+    plan_data: MaintenancePlanCreate,
+    user: User = Depends(get_current_user)
+):
+    """Actualizar plan de mantenimiento"""
+    existing = await db.maintenance_plans.find_one({"id": plan_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Plan no encontrado")
+    
+    update_data = plan_data.model_dump()
+    await db.maintenance_plans.update_one({"id": plan_id}, {"$set": update_data})
+    
+    updated = await db.maintenance_plans.find_one({"id": plan_id}, {"_id": 0})
+    if isinstance(updated.get('created_at'), str):
+        updated['created_at'] = datetime.fromisoformat(updated['created_at'])
+    
+    return MaintenancePlan(**updated)
+
+@api_router.delete("/maintenance-plans/{plan_id}")
+async def delete_maintenance_plan(
+    plan_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Eliminar plan de mantenimiento"""
+    if user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="No tienes permisos para eliminar planes")
+    
+    result = await db.maintenance_plans.delete_one({"id": plan_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Plan no encontrado")
+    
+    return {"message": "Plan eliminado exitosamente"}
+
 # ============ QUOTE ROUTES ============
 
 @api_router.post("/quotes", response_model=Quote, status_code=status.HTTP_201_CREATED)
@@ -394,11 +478,17 @@ async def get_authorizations(
 async def approve_authorization(
     authorization_id: str,
     comentarios: Optional[str] = None,
+    notificar_whatsapp: bool = False,
     user: User = Depends(get_current_user)
 ):
     """Aprobar autorización (solo admin/gerente)"""
     if user.role not in ["admin", "gerente"]:
         raise HTTPException(status_code=403, detail="No tienes permisos para aprobar autorizaciones")
+    
+    # Get authorization details
+    authorization = await db.authorizations.find_one({"id": authorization_id}, {"_id": 0})
+    if not authorization:
+        raise HTTPException(status_code=404, detail="Autorización no encontrada")
     
     await db.authorizations.update_one(
         {"id": authorization_id},
@@ -412,7 +502,71 @@ async def approve_authorization(
         }
     )
     
-    return {"message": "Autorización aprobada"}
+    # Send WhatsApp notification if requested
+    if notificar_whatsapp:
+        # Get solicitante details
+        solicitante = await db.users.find_one({"id": authorization.get("solicitante_id")}, {"_id": 0})
+        if solicitante and solicitante.get("phone"):
+            alert_data = {
+                "titulo": "Autorización Aprobada",
+                "mensaje": f"Tu solicitud de {authorization.get('tipo')} ha sido aprobada por {user.full_name}. {comentarios or ''}",
+                "prioridad": "media"
+            }
+            await notification_service.send_alert_notification(
+                "authorization_approved",
+                solicitante.get("email"),
+                solicitante.get("phone"),
+                alert_data
+            )
+    
+    return {"message": "Autorización aprobada", "notification_sent": notificar_whatsapp}
+
+@api_router.put("/authorizations/{authorization_id}/reject")
+async def reject_authorization(
+    authorization_id: str,
+    comentarios: str,
+    notificar_whatsapp: bool = False,
+    user: User = Depends(get_current_user)
+):
+    """Rechazar autorización (solo admin/gerente)"""
+    if user.role not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="No tienes permisos para rechazar autorizaciones")
+    
+    # Get authorization details
+    authorization = await db.authorizations.find_one({"id": authorization_id}, {"_id": 0})
+    if not authorization:
+        raise HTTPException(status_code=404, detail="Autorización no encontrada")
+    
+    await db.authorizations.update_one(
+        {"id": authorization_id},
+        {
+            "$set": {
+                "estado": "rechazada",
+                "aprobador_id": user.id,
+                "fecha_resolucion": datetime.now(timezone.utc).isoformat(),
+                "comentarios": comentarios
+            }
+        }
+    )
+    
+    # Send WhatsApp notification if requested
+    if notificar_whatsapp:
+        # Get solicitante details
+        solicitante = await db.users.find_one({"id": authorization.get("solicitante_id")}, {"_id": 0})
+        if solicitante and solicitante.get("phone"):
+            alert_data = {
+                "titulo": "Autorización Rechazada",
+                "mensaje": f"Tu solicitud de {authorization.get('tipo')} ha sido rechazada por {user.full_name}. Motivo: {comentarios}",
+                "prioridad": "alta"
+            }
+            await notification_service.send_alert_notification(
+                "authorization_rejected",
+                solicitante.get("email"),
+                solicitante.get("phone"),
+                alert_data
+            )
+    
+    return {"message": "Autorización rechazada", "notification_sent": notificar_whatsapp}
 
 
 # ============ CONFIGURATION ROUTES (Admin Only) ============
@@ -656,6 +810,97 @@ async def check_asset_replacement(
     """Verificar si un activo debe ser reemplazado"""
     check = await analytics.should_replace_asset(asset_id)
     return check
+
+
+# ============ REPORTS ROUTES ============
+
+@api_router.get("/reports/maintenance-history")
+async def get_maintenance_history(
+    asset_id: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    tipo: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Obtener historial de mantenimientos y reparaciones"""
+    query = {"estado": "completado"}
+    
+    if asset_id:
+        query["asset_id"] = asset_id
+    if tipo:
+        query["tipo"] = tipo
+    if start_date:
+        query["fecha_realizada"] = {"$gte": start_date}
+    if end_date:
+        if "fecha_realizada" in query:
+            query["fecha_realizada"]["$lte"] = end_date
+        else:
+            query["fecha_realizada"] = {"$lte": end_date}
+    
+    maintenances = await db.maintenances.find(query, {"_id": 0}).sort("fecha_realizada", -1).to_list(1000)
+    
+    # Enrich with asset details
+    for maintenance in maintenances:
+        if isinstance(maintenance.get('created_at'), str):
+            maintenance['created_at'] = datetime.fromisoformat(maintenance['created_at'])
+        
+        asset = await db.assets.find_one({"id": maintenance["asset_id"]}, {"_id": 0})
+        if asset:
+            maintenance["asset_details"] = {
+                "etiqueta_id": asset.get("etiqueta_id"),
+                "marca": asset.get("marca"),
+                "modelo": asset.get("modelo"),
+                "sucursal": asset.get("sucursal"),
+                "area_restaurante": asset.get("area_restaurante")
+            }
+    
+    return {
+        "total": len(maintenances),
+        "maintenances": maintenances
+    }
+
+@api_router.get("/reports/asset-summary/{asset_id}")
+async def get_asset_summary(
+    asset_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Obtener resumen completo de un activo"""
+    asset = await db.assets.find_one({"id": asset_id}, {"_id": 0})
+    if not asset:
+        raise HTTPException(status_code=404, detail="Activo no encontrado")
+    
+    if isinstance(asset.get('created_at'), str):
+        asset['created_at'] = datetime.fromisoformat(asset['created_at'])
+    
+    # Get maintenance history
+    maintenances = await db.maintenances.find(
+        {"asset_id": asset_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(1000)
+    
+    for m in maintenances:
+        if isinstance(m.get('created_at'), str):
+            m['created_at'] = datetime.fromisoformat(m['created_at'])
+    
+    # Get costs
+    costs = await analytics.calculate_asset_total_cost(asset_id)
+    
+    # Get replacement check
+    replacement = await analytics.should_replace_asset(asset_id)
+    
+    # Get quotes
+    quotes = await db.quotes.find({"asset_id": asset_id}, {"_id": 0}).to_list(100)
+    for q in quotes:
+        if isinstance(q.get('created_at'), str):
+            q['created_at'] = datetime.fromisoformat(q['created_at'])
+    
+    return {
+        "asset": asset,
+        "maintenances": maintenances,
+        "costs": costs,
+        "replacement_recommendation": replacement,
+        "quotes": quotes
+    }
 
 # ============ SQL SERVER ROUTES ============
 

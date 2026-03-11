@@ -14,6 +14,13 @@ export const getMaintenances = (params) => axios.get(`${API}/maintenances`, { pa
 export const createMaintenance = (data) => axios.post(`${API}/maintenances`, data);
 export const updateMaintenance = (id, data) => axios.put(`${API}/maintenances/${id}`, data);
 
+// Maintenance Plans
+export const getMaintenancePlans = (params) => axios.get(`${API}/maintenance-plans`, { params });
+export const getMaintenancePlan = (id) => axios.get(`${API}/maintenance-plans/${id}`);
+export const createMaintenancePlan = (data) => axios.post(`${API}/maintenance-plans`, data);
+export const updateMaintenancePlan = (id, data) => axios.put(`${API}/maintenance-plans/${id}`, data);
+export const deleteMaintenancePlan = (id) => axios.delete(`${API}/maintenance-plans/${id}`);
+
 // Quotes
 export const getQuotes = (params) => axios.get(`${API}/quotes`, { params });
 export const createQuote = (data) => axios.post(`${API}/quotes`, data);
@@ -21,8 +28,10 @@ export const createQuote = (data) => axios.post(`${API}/quotes`, data);
 // Authorizations
 export const getAuthorizations = (params) => axios.get(`${API}/authorizations`, { params });
 export const createAuthorization = (data) => axios.post(`${API}/authorizations`, data);
-export const approveAuthorization = (id, comentarios) => 
-  axios.put(`${API}/authorizations/${id}/approve`, null, { params: { comentarios } });
+export const approveAuthorization = (id, comentarios, notificar_whatsapp = false) => 
+  axios.put(`${API}/authorizations/${id}/approve`, null, { params: { comentarios, notificar_whatsapp } });
+export const rejectAuthorization = (id, comentarios, notificar_whatsapp = false) => 
+  axios.put(`${API}/authorizations/${id}/reject`, null, { params: { comentarios, notificar_whatsapp } });
 
 // Alerts
 export const getAlerts = (params) => axios.get(`${API}/alerts`, { params });
@@ -41,6 +50,14 @@ export const downloadFile = (fileId) =>
 export const getDashboardStats = () => axios.get(`${API}/analytics/dashboard`);
 export const getAssetCosts = (id) => axios.get(`${API}/analytics/asset/${id}/costs`);
 export const checkAssetReplacement = (id) => axios.get(`${API}/analytics/asset/${id}/replacement-check`);
+
+
+// Reports
+export const getMaintenanceHistory = (params) => 
+  axios.get(`${API}/reports/maintenance-history`, { params });
+export const getAssetSummary = (id) => 
+  axios.get(`${API}/reports/asset-summary/${id}`);
+
 
 // External
 export const getExternalInvoices = (serverIndex) => 

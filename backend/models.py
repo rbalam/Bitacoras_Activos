@@ -41,6 +41,7 @@ class AssetBase(BaseModel):
     costo_equipo: float
     fecha_compra: Optional[str] = None
     estado: Literal["operativo", "mantenimiento", "critico", "dado_de_baja"] = "operativo"
+    foto_url: Optional[str] = None
     notas: Optional[str] = None
 
 class AssetCreate(AssetBase):
@@ -84,6 +85,7 @@ class Maintenance(MaintenanceBase):
 class QuoteBase(BaseModel):
     asset_id: str
     maintenance_id: Optional[str] = None
+    tipo_cotizacion: Literal["mantenimiento", "refacciones"] = "mantenimiento"
     proveedor: str
     concepto: str
     monto: float
@@ -91,6 +93,10 @@ class QuoteBase(BaseModel):
     incluye: Optional[str] = None
     archivo_url: Optional[str] = None
     estado: Literal["pendiente", "aprobada", "rechazada"] = "pendiente"
+    # Relación con sistemas externos
+    sistema_externo: Optional[Literal["mpro", "soft"]] = None
+    pedido_externo_id: Optional[str] = None
+    sucursal_sistema: Optional[str] = None
     notas: Optional[str] = None
 
 class QuoteCreate(QuoteBase):
@@ -165,6 +171,31 @@ class AssetReplacementBase(BaseModel):
     autorizacion_id: Optional[str] = None
     costo_total: float
     notas: Optional[str] = None
+
+
+# Maintenance Plan Models (Planes de Mantenimiento Preventivo)
+class MaintenancePlanBase(BaseModel):
+    nombre: str
+    descripcion: Optional[str] = None
+    tipo_agrupacion: Literal["individual", "area", "sucursal", "selectivo"] = "individual"
+    asset_ids: List[str] = []  # IDs de activos (para individual o selectivo)
+    area_restaurante: Optional[str] = None  # Para agrupación por área
+    sucursal: Optional[str] = None  # Para agrupación por sucursal
+    frecuencia_dias: int  # Cada cuántos días se debe realizar
+    proximo_mantenimiento: str  # Fecha del próximo mantenimiento
+    activo: bool = True
+    notificar_dias_antes: int = 7  # Días de anticipación para notificar
+    notas: Optional[str] = None
+
+class MaintenancePlanCreate(MaintenancePlanBase):
+    pass
+
+class MaintenancePlan(MaintenancePlanBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: str
+    ultimo_mantenimiento: Optional[str] = None
 
 class AssetReplacementCreate(AssetReplacementBase):
     pass
