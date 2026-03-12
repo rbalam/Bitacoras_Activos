@@ -122,6 +122,11 @@ const Login = () => {
                 Registrarse
               </Link>
             </p>
+            <p className="text-sm text-slate-600 mt-2">
+              <Link to="/forgot-password" className="font-semibold text-slate-900 hover:underline" data-testid="forgot-password-link">
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </p>
           </div>
         </Card>
       </div>

@@ -121,6 +121,100 @@ async def login(credentials: UserLogin):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     
     if not verify_password(credentials.password, user_data.get("hashed_password", "")):
+
+
+@api_router.post("/auth/reset-password-request")
+async def reset_password_request(email: str):
+    """Solicitar cambio de contraseña - genera código temporal"""
+    user = await db.users.find_one({"email": email}, {"_id": 0})
+    if not user:
+        # Por seguridad, no revelamos si el email existe o no
+        return {"message": "Si el email existe, recibirás instrucciones para restablecer tu contraseña"}
+    
+    # Generar código temporal de 6 dígitos
+    import random
+    reset_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+    
+    # Guardar código en la BD con expiración de 15 minutos
+    from datetime import timedelta
+    expiration = datetime.now(timezone.utc) + timedelta(minutes=15)
+    
+    await db.users.update_one(
+        {"email": email},
+        {
+            "$set": {
+                "reset_code": reset_code,
+                "reset_code_expiration": expiration.isoformat()
+            }
+        }
+    )
+    
+    # En producción, enviaríamos el código por email
+    # Por ahora, lo devolvemos en la respuesta para testing
+    logger.info(f"Código de reseteo para {email}: {reset_code}")
+    
+    return {
+        "message": "Código de reseteo generado",
+        "reset_code": reset_code,
+        "expires_in_minutes": 15,
+        "note": "En producción, este código se enviaría por email"
+    }
+
+@api_router.post("/auth/reset-password-confirm")
+async def reset_password_confirm(email: str, reset_code: str, new_password: str):
+    """Confirmar cambio de contraseña con código"""
+    user = await db.users.find_one({"email": email}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    # Verificar código
+    if not user.get("reset_code") or user.get("reset_code") != reset_code:
+        raise HTTPException(status_code=400, detail="Código inválido")
+    
+    # Verificar expiración
+    if user.get("reset_code_expiration"):
+        expiration = datetime.fromisoformat(user["reset_code_expiration"])
+        if datetime.now(timezone.utc) > expiration:
+            raise HTTPException(status_code=400, detail="Código expirado")
+    
+    # Cambiar contraseña
+    hashed_password = get_password_hash(new_password)
+    await db.users.update_one(
+        {"email": email},
+        {
+            "$set": {"hashed_password": hashed_password},
+            "$unset": {"reset_code": "", "reset_code_expiration": ""}
+        }
+    )
+    
+    logger.info(f"Contraseña reseteada para {email}")
+    
+    return {"message": "Contraseña actualizada exitosamente"}
+
+@api_router.post("/auth/admin-reset-password")
+async def admin_reset_password(
+    target_email: str,
+    new_password: str,
+    user: User = Depends(get_current_user)
+):
+    """Resetear contraseña de otro usuario (solo admin)"""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores pueden resetear contraseñas")
+    
+    target_user = await db.users.find_one({"email": target_email}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    hashed_password = get_password_hash(new_password)
+    await db.users.update_one(
+        {"email": target_email},
+        {"$set": {"hashed_password": hashed_password}}
+    )
+    
+    logger.info(f"Admin {user.email} reseteó contraseña de {target_email}")
+    
+    return {"message": f"Contraseña de {target_email} actualizada exitosamente"}
+
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     
     if not user_data.get("active", True):
