@@ -121,7 +121,18 @@ async def login(credentials: UserLogin):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     
     if not verify_password(credentials.password, user_data.get("hashed_password", "")):
-
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+    
+    if not user_data.get("active", True):
+        raise HTTPException(status_code=403, detail="Usuario inactivo")
+    
+    if isinstance(user_data.get('created_at'), str):
+        user_data['created_at'] = datetime.fromisoformat(user_data['created_at'])
+    
+    user = User(**user_data)
+    access_token = create_access_token(data={"sub": user.id, "email": user.email, "role": user.role})
+    
+    return Token(access_token=access_token, token_type="bearer", user=user)
 
 @api_router.post("/auth/reset-password-request")
 async def reset_password_request(email: str):
@@ -523,6 +534,9 @@ async def check_quote_requirement(
         "message": f"Se requieren mínimo 2 cotizaciones. Actualmente hay {existing_quotes}."
     }
 
+@api_router.put("/maintenance-plans/{plan_id}", response_model=MaintenancePlan)
+async def update_maintenance_plan(
+    plan_id: str,
     plan_data: MaintenancePlanCreate,
     user: User = Depends(get_current_user)
 ):
