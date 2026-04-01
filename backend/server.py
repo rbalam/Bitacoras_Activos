@@ -226,19 +226,6 @@ async def admin_reset_password(
     
     return {"message": f"Contraseña de {target_email} actualizada exitosamente"}
 
-        raise HTTPException(status_code=401, detail="Credenciales inválidas")
-    
-    if not user_data.get("active", True):
-        raise HTTPException(status_code=403, detail="Usuario inactivo")
-    
-    if isinstance(user_data.get('created_at'), str):
-        user_data['created_at'] = datetime.fromisoformat(user_data['created_at'])
-    
-    user = User(**user_data)
-    access_token = create_access_token(data={"sub": user.id, "email": user.email, "role": user.role})
-    
-    return Token(access_token=access_token, token_type="bearer", user=user)
-
 @api_router.get("/auth/me", response_model=User)
 async def get_me(user: User = Depends(get_current_user)):
     """Obtener usuario actual"""
