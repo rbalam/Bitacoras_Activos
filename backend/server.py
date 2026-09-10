@@ -5,6 +5,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import asyncio
 from pathlib import Path
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
@@ -1096,8 +1097,10 @@ async def create_asset_replacement(
 ):
     """Registrar proceso de baja y sustitución de activo"""
     # Verificar que ambos activos existen
-    old_asset = await db.assets.find_one({"id": replacement_data.old_asset_id}, {"_id": 0})
-    new_asset = await db.assets.find_one({"id": replacement_data.new_asset_id}, {"_id": 0})
+    old_asset, new_asset = await asyncio.gather(
+        db.assets.find_one({"id": replacement_data.old_asset_id}, {"_id": 0}),
+        db.assets.find_one({"id": replacement_data.new_asset_id}, {"_id": 0})
+    )
     
     if not old_asset or not new_asset:
         raise HTTPException(status_code=404, detail="Uno de los activos no fue encontrado")
