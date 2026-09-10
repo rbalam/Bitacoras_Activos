@@ -19,14 +19,9 @@ from dotenv import load_dotenv
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-async def init_configs():
-    # Connect to MongoDB
-    mongo_url = os.environ['MONGO_URL']
-    client = AsyncIOMotorClient(mongo_url)
-    db = client[os.environ['DB_NAME']]
-    
-    # Default configurations
-    configs = [
+def get_default_configs() -> list[dict]:
+    """Returns the default configurations to initialize."""
+    return [
         # Twilio
         {
             "id": str(uuid.uuid4()),
@@ -85,8 +80,12 @@ async def init_configs():
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
     ]
-    
-    # Check if configs already exist
+
+async def check_and_clear_existing(db) -> bool:
+    """
+    Checks for existing configurations, prompts user for replacement,
+    and deletes them if requested. Returns False if operation should abort.
+    """
     existing_count = await db.configs.count_documents({})
     
     if existing_count > 0:
@@ -94,25 +93,42 @@ async def init_configs():
         response = input("¿Deseas reemplazarlas? (s/N): ")
         if response.lower() != 's':
             print("❌ Operación cancelada")
-            client.close()
-            return
+            return False
         
         # Delete existing configs
         result = await db.configs.delete_many({})
         print(f"🗑️  Eliminadas {result.deleted_count} configuraciones anteriores")
-    
-    # Insert new configs
-    result = await db.configs.insert_many(configs)
-    print(f"✅ {len(result.inserted_ids)} configuraciones inicializadas correctamente")
-    
+
+    return True
+
+def print_configs(configs: list[dict]):
+    """Prints a summary of the inserted configurations."""
     print("\n📋 Configuraciones creadas:")
     for config in configs:
         status = "✓ Activo" if config["active"] else "✗ Inactivo"
         value_display = config["value"][:10] + "..." if config["is_sensitive"] and config["value"] else config["value"]
         print(f"  • {config['key']}: {value_display} [{status}]")
+
+async def init_configs():
+    # Connect to MongoDB
+    mongo_url = os.environ['MONGO_URL']
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[os.environ['DB_NAME']]
     
-    client.close()
-    print("\n✨ Inicialización completada")
+    try:
+        if not await check_and_clear_existing(db):
+            return
+
+        configs = get_default_configs()
+
+        # Insert new configs
+        result = await db.configs.insert_many(configs)
+        print(f"✅ {len(result.inserted_ids)} configuraciones inicializadas correctamente")
+
+        print_configs(configs)
+        print("\n✨ Inicialización completada")
+    finally:
+        client.close()
 
 if __name__ == "__main__":
     asyncio.run(init_configs())
