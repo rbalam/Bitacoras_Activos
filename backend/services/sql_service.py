@@ -91,21 +91,27 @@ class SQLServerService:
     
     async def search_by_invoice_number(self, invoice_number: str) -> List[Dict[str, Any]]:
         """Buscar una factura específica en todos los servidores"""
-        all_results = []
+        query = f"""
+        SELECT TOP 10 *
+        FROM Facturas
+        WHERE NumeroFactura LIKE '%{invoice_number}%'
+        """
         
-        for i in range(len(self.servers)):
-            query = f"""
-            SELECT TOP 10 *
-            FROM Facturas
-            WHERE NumeroFactura LIKE '%{invoice_number}%'
-            """
-            
-            results = await self.execute_query(i, query)
+        async def fetch_from_server(index: int) -> List[Dict[str, Any]]:
+            results = await self.execute_query(index, query)
             if results:
                 for result in results:
-                    result["source_server"] = self.servers[i]["name"]
-                all_results.extend(results)
+                    result["source_server"] = self.servers[index]["name"]
+                return results
+            return []
+
+        tasks = [fetch_from_server(i) for i in range(len(self.servers))]
+        results_lists = await asyncio.gather(*tasks)
         
+        all_results = []
+        for res_list in results_lists:
+            all_results.extend(res_list)
+
         return all_results
 
 sql_service = SQLServerService()
