@@ -354,6 +354,43 @@ async def get_maintenances(
     
     return maintenances
 
+async def _validate_maintenance_exists(maintenance_id: str):
+    existing = await db.maintenances.find_one({"id": maintenance_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Mantenimiento no encontrado")
+
+async def _update_asset_costs_and_status(asset_id: str):
+    costs = await analytics.calculate_asset_total_cost(asset_id)
+    await db.assets.update_one(
+        {"id": asset_id},
+        {
+            "$set": {
+                "total_gasto_mantenimiento": costs["total_mantenimiento_preventivo"],
+                "total_gasto_reparaciones": costs["total_reparaciones"],
+                "estado": "operativo",
+                "ultimo_mantenimiento": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+
+async def _check_and_create_replacement_alert(asset_id: str):
+    replacement_check = await analytics.should_replace_asset(asset_id)
+    if replacement_check["should_replace"]:
+        alert = Alert(
+            asset_id=asset_id,
+            tipo="reemplazo_sugerido",
+            titulo="Reemplazo de Equipo Sugerido",
+            mensaje=f"El equipo ha superado el 70% de su valor en reparaciones. {replacement_check['reason']}",
+            prioridad="alta"
+        )
+        alert_doc = alert.model_dump()
+        alert_doc["created_at"] = alert_doc["created_at"].isoformat()
+        await db.alerts.insert_one(alert_doc)
+
+async def _process_completed_maintenance(asset_id: str):
+    await _update_asset_costs_and_status(asset_id)
+    await _check_and_create_replacement_alert(asset_id)
+
 @api_router.put("/maintenances/{maintenance_id}", response_model=Maintenance)
 async def update_maintenance(
     maintenance_id: str,
@@ -361,41 +398,14 @@ async def update_maintenance(
     user: User = Depends(get_current_user)
 ):
     """Actualizar mantenimiento"""
-    existing = await db.maintenances.find_one({"id": maintenance_id}, {"_id": 0})
-    if not existing:
-        raise HTTPException(status_code=404, detail="Mantenimiento no encontrado")
+    await _validate_maintenance_exists(maintenance_id)
     
     update_data = maintenance_data.model_dump()
     await db.maintenances.update_one({"id": maintenance_id}, {"$set": update_data})
     
-    # Si se completó, actualizar costos del activo
+    # Si se completó, actualizar costos del activo y verificar reemplazo
     if maintenance_data.estado == "completado":
-        costs = await analytics.calculate_asset_total_cost(maintenance_data.asset_id)
-        await db.assets.update_one(
-            {"id": maintenance_data.asset_id},
-            {
-                "$set": {
-                    "total_gasto_mantenimiento": costs["total_mantenimiento_preventivo"],
-                    "total_gasto_reparaciones": costs["total_reparaciones"],
-                    "estado": "operativo",
-                    "ultimo_mantenimiento": datetime.now(timezone.utc).isoformat()
-                }
-            }
-        )
-        
-        # Verificar si se debe recomendar reemplazo
-        replacement_check = await analytics.should_replace_asset(maintenance_data.asset_id)
-        if replacement_check["should_replace"]:
-            alert = Alert(
-                asset_id=maintenance_data.asset_id,
-                tipo="reemplazo_sugerido",
-                titulo="Reemplazo de Equipo Sugerido",
-                mensaje=f"El equipo ha superado el 70% de su valor en reparaciones. {replacement_check['reason']}",
-                prioridad="alta"
-            )
-            alert_doc = alert.model_dump()
-            alert_doc["created_at"] = alert_doc["created_at"].isoformat()
-            await db.alerts.insert_one(alert_doc)
+        await _process_completed_maintenance(maintenance_data.asset_id)
     
     updated = await db.maintenances.find_one({"id": maintenance_id}, {"_id": 0})
     if isinstance(updated.get('created_at'), str):
