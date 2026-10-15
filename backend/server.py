@@ -10,6 +10,7 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 import uuid
 import shutil
+import aiofiles
 
 from models import (
     User, UserCreate, UserLogin, Token,
@@ -887,8 +888,9 @@ async def upload_file(
     file_path = UPLOAD_DIR / unique_filename
     
     # Guardar archivo
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    async with aiofiles.open(file_path, "wb") as buffer:
+        while content := await file.read(1024 * 1024):
+            await buffer.write(content)
     
     # Crear registro
     file_record = FileRecord(
