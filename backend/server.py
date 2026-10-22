@@ -5,6 +5,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import asyncio
 from pathlib import Path
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
@@ -1034,24 +1035,35 @@ async def get_asset_summary(
     if isinstance(asset.get('created_at'), str):
         asset['created_at'] = datetime.fromisoformat(asset['created_at'])
     
-    # Get maintenance history
-    maintenances = await db.maintenances.find(
+    # Prepare queries to be executed concurrently
+    maintenances_coro = db.maintenances.find(
         {"asset_id": asset_id},
         {"_id": 0}
     ).sort("created_at", -1).to_list(1000)
     
+    costs_coro = analytics.calculate_asset_total_cost(asset_id)
+    
+    replacement_coro = analytics.should_replace_asset(asset_id)
+    
+    quotes_coro = db.quotes.find(
+        {"asset_id": asset_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Execute all queries concurrently
+    maintenances, costs, replacement, quotes = await asyncio.gather(
+        maintenances_coro,
+        costs_coro,
+        replacement_coro,
+        quotes_coro
+    )
+
+    # Format maintenance history
     for m in maintenances:
         if isinstance(m.get('created_at'), str):
             m['created_at'] = datetime.fromisoformat(m['created_at'])
-    
-    # Get costs
-    costs = await analytics.calculate_asset_total_cost(asset_id)
-    
-    # Get replacement check
-    replacement = await analytics.should_replace_asset(asset_id)
-    
-    # Get quotes
-    quotes = await db.quotes.find({"asset_id": asset_id}, {"_id": 0}).to_list(100)
+
+    # Format quotes
     for q in quotes:
         if isinstance(q.get('created_at'), str):
             q['created_at'] = datetime.fromisoformat(q['created_at'])
