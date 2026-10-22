@@ -1002,19 +1002,24 @@ async def get_maintenance_history(
     maintenances = await db.maintenances.find(query, {"_id": 0}).sort("fecha_realizada", -1).to_list(1000)
     
     # Enrich with asset details
-    for maintenance in maintenances:
-        if isinstance(maintenance.get('created_at'), str):
-            maintenance['created_at'] = datetime.fromisoformat(maintenance['created_at'])
+    if maintenances:
+        asset_ids = list({m.get("asset_id") for m in maintenances if m.get("asset_id")})
+        assets_res = await db.assets.find({"id": {"$in": asset_ids}}, {"_id": 0}).to_list(None)
+        asset_map = {asset["id"]: asset for asset in assets_res if "id" in asset}
         
-        asset = await db.assets.find_one({"id": maintenance["asset_id"]}, {"_id": 0})
-        if asset:
-            maintenance["asset_details"] = {
-                "etiqueta_id": asset.get("etiqueta_id"),
-                "marca": asset.get("marca"),
-                "modelo": asset.get("modelo"),
-                "sucursal": asset.get("sucursal"),
-                "area_restaurante": asset.get("area_restaurante")
-            }
+        for maintenance in maintenances:
+            if isinstance(maintenance.get('created_at'), str):
+                maintenance['created_at'] = datetime.fromisoformat(maintenance['created_at'])
+
+            asset = asset_map.get(maintenance.get("asset_id"))
+            if asset:
+                maintenance["asset_details"] = {
+                    "etiqueta_id": asset.get("etiqueta_id"),
+                    "marca": asset.get("marca"),
+                    "modelo": asset.get("modelo"),
+                    "sucursal": asset.get("sucursal"),
+                    "area_restaurante": asset.get("area_restaurante")
+                }
     
     return {
         "total": len(maintenances),
