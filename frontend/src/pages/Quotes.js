@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -210,6 +210,8 @@ const Quotes = () => {
     return acc;
   }, {});
 
+  const assetMap = useMemo(() => new Map(assets.map(a => [a.id, a])), [assets]);
+
   if (loading) {
     return (
       <Layout>
@@ -410,7 +412,7 @@ const Quotes = () => {
 
         {/* Grouped Quotes with Comparison */}
         {Object.entries(groupedQuotes).map(([assetId, assetQuotes]) => {
-          const asset = assets.find(a => a.id === assetId);
+          const asset = assetMap.get(assetId);
           const hasMultiple = assetQuotes.length > 1;
           const lowestQuote = hasMultiple ? assetQuotes.reduce((min, q) => q.monto < min.monto ? q : min) : null;
 
