@@ -31,7 +31,7 @@ async def init_configs():
         {
             "id": str(uuid.uuid4()),
             "key": "TWILIO_ACCOUNT_SID",
-            "value": "ACc41b705a355130d7d5e73920dd9d23b1",
+            "value": os.environ.get("TWILIO_ACCOUNT_SID", ""),
             "category": "twilio",
             "description": "Twilio Account SID",
             "is_sensitive": True,
@@ -42,7 +42,7 @@ async def init_configs():
         {
             "id": str(uuid.uuid4()),
             "key": "TWILIO_AUTH_TOKEN",
-            "value": "b64b2400dee6f1d990cec096a7d46a0d",
+            "value": os.environ.get("TWILIO_AUTH_TOKEN", ""),
             "category": "twilio",
             "description": "Twilio Auth Token",
             "is_sensitive": True,
