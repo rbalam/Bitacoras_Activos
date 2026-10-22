@@ -19,14 +19,9 @@ from dotenv import load_dotenv
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-async def init_configs():
-    # Connect to MongoDB
-    mongo_url = os.environ['MONGO_URL']
-    client = AsyncIOMotorClient(mongo_url)
-    db = client[os.environ['DB_NAME']]
-    
-    # Default configurations
-    configs = [
+def get_default_configs():
+    """Returns the default configurations to be initialized."""
+    return [
         # Twilio
         {
             "id": str(uuid.uuid4()),
@@ -85,6 +80,15 @@ async def init_configs():
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
     ]
+
+async def init_configs():
+    # Connect to MongoDB
+    mongo_url = os.environ['MONGO_URL']
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[os.environ['DB_NAME']]
+
+    # Default configurations
+    configs = get_default_configs()
     
     # Check if configs already exist
     existing_count = await db.configs.count_documents({})
