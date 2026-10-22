@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { Switch } from '../components/ui/switch';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Settings, Eye, EyeOff, Edit, TestTube, Save, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Edit, TestTube, Save, AlertCircle } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
