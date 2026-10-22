@@ -23,7 +23,7 @@ from models import (
     AssetReplacement, AssetReplacementCreate,
     DashboardStats
 )
-from models_config import Config, ConfigCreate, ConfigUpdate, ConfigPublic, TestNotificationRequest
+from models_config import Config, ConfigUpdate, ConfigPublic, TestNotificationRequest
 from auth import get_password_hash, verify_password, create_access_token, decode_token, security
 from services.notification_service import NotificationService
 from services.sql_service import sql_service
