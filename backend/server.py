@@ -18,7 +18,7 @@ from models import (
     MaintenancePlan, MaintenancePlanCreate,
     Quote, QuoteCreate,
     Authorization, AuthorizationCreate,
-    Alert, AlertCreate,
+    Alert,
     FileRecord,
     AssetReplacement, AssetReplacementCreate,
     DashboardStats
