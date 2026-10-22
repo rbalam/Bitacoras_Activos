@@ -93,14 +93,19 @@ class SQLServerService:
         """Buscar una factura específica en todos los servidores"""
         all_results = []
         
-        for i in range(len(self.servers)):
-            query = f"""
-            SELECT TOP 10 *
-            FROM Facturas
-            WHERE NumeroFactura LIKE '%{invoice_number}%'
-            """
-            
-            results = await self.execute_query(i, query)
+        query = f"""
+        SELECT TOP 10 *
+        FROM Facturas
+        WHERE NumeroFactura LIKE '%{invoice_number}%'
+        """
+
+        # Create a list of tasks for executing queries concurrently
+        tasks = [self.execute_query(i, query) for i in range(len(self.servers))]
+
+        # Wait for all queries to finish concurrently
+        results_list = await asyncio.gather(*tasks)
+
+        for i, results in enumerate(results_list):
             if results:
                 for result in results:
                     result["source_server"] = self.servers[i]["name"]
