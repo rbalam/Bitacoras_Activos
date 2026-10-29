@@ -72,7 +72,7 @@ const Quotes = () => {
         });
       }
     } catch (error) {
-      console.error('Error checking requirement:', error);
+      // Silently ignore to avoid exposing errors in production
     }
   };
 
