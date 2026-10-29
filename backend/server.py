@@ -541,21 +541,6 @@ async def update_maintenance_plan(
     
     return MaintenancePlan(**updated)
 
-@api_router.delete("/maintenance-plans/{plan_id}")
-async def delete_maintenance_plan(
-    plan_id: str,
-    user: User = Depends(get_current_user)
-):
-    """Eliminar plan de mantenimiento"""
-    if user.role not in ["admin", "gerente"]:
-        raise HTTPException(status_code=403, detail="No tienes permisos para eliminar planes")
-    
-    result = await db.maintenance_plans.delete_one({"id": plan_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Plan no encontrado")
-    
-    return {"message": "Plan eliminado exitosamente"}
-
 # ============ QUOTE ROUTES ============
 
 @api_router.post("/quotes", response_model=Quote, status_code=status.HTTP_201_CREATED)
