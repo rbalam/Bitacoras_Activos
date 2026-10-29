@@ -35,7 +35,7 @@ class SQLServerService:
             },
         ]
     
-    async def execute_query(self, server_index: int, query: str) -> Optional[List[Dict[str, Any]]]:
+    async def execute_query(self, server_index: int, query: str, params: tuple = ()) -> Optional[List[Dict[str, Any]]]:
         """Ejecutar query en un servidor SQL específico"""
         if server_index >= len(self.servers):
             logger.error(f"Índice de servidor inválido: {server_index}")
@@ -57,7 +57,7 @@ class SQLServerService:
                     timeout=10
                 )
                 cursor = conn.cursor(as_dict=True)
-                cursor.execute(query)
+                cursor.execute(query, params)
                 results = cursor.fetchall()
                 conn.close()
                 return results
@@ -79,14 +79,17 @@ class SQLServerService:
         WHERE 1=1
         """
         
+        params = []
         if start_date:
-            query += f" AND Fecha >= '{start_date}'"
+            query += " AND Fecha >= %s"
+            params.append(start_date)
         if end_date:
-            query += f" AND Fecha <= '{end_date}'"
+            query += " AND Fecha <= %s"
+            params.append(end_date)
         
         query += " ORDER BY Fecha DESC"
         
-        results = await self.execute_query(server_index, query)
+        results = await self.execute_query(server_index, query, tuple(params))
         return results or []
     
     async def search_by_invoice_number(self, invoice_number: str) -> List[Dict[str, Any]]:
@@ -94,13 +97,13 @@ class SQLServerService:
         all_results = []
         
         for i in range(len(self.servers)):
-            query = f"""
+            query = """
             SELECT TOP 10 *
             FROM Facturas
-            WHERE NumeroFactura LIKE '%{invoice_number}%'
+            WHERE NumeroFactura LIKE %s
             """
             
-            results = await self.execute_query(i, query)
+            results = await self.execute_query(i, query, (f"%{invoice_number}%",))
             if results:
                 for result in results:
                     result["source_server"] = self.servers[i]["name"]
