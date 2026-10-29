@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 import uuid
-import shutil
+import aiofiles
 
 from models import (
     User, UserCreate, UserLogin, Token,
@@ -887,8 +887,9 @@ async def upload_file(
     file_path = UPLOAD_DIR / unique_filename
     
     # Guardar archivo
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    async with aiofiles.open(file_path, "wb") as out_file:
+        while content := await file.read(1024 * 1024):  # 1MB chunks
+            await out_file.write(content)
     
     # Crear registro
     file_record = FileRecord(
