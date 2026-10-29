@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import os
+import secrets
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
@@ -9,7 +10,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "your-secret-key-change-in-production")
+JWT_SECRET = os.environ.get("JWT_SECRET", secrets.token_urlsafe(32))
 JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_MINUTES = int(os.environ.get("JWT_EXPIRE_MINUTES", "10080"))
 
