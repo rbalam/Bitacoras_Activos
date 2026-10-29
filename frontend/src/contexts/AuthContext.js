@@ -25,7 +25,6 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.get(`${API}/auth/me`);
       setUser(response.data);
     } catch (error) {
-      console.error('Error fetching user:', error);
       logout();
     } finally {
       setLoading(false);
